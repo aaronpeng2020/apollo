@@ -227,6 +227,28 @@ import type {
   ToolDefinition,
   ToolExecutionResult,
 } from '@/tools/types';
+import {
+  buildTwiceAuthorizationHeaderMap,
+  findTwiceMcpServerId,
+  TWICE_DEFAULT_ENABLED_TOOL_LIST,
+  TWICE_MCP_SERVER_NAME,
+  TWICE_MCP_SERVER_URL,
+} from '@/twice/preset';
+import {
+  buildTwiceStatus,
+  deleteTwiceApiKey,
+  readTwiceApiKey,
+  saveTwiceApiKey,
+  setTwiceApiKeyInputSchema,
+  twiceSecretInputSchema,
+  type SetTwiceApiKeyInput,
+  type TwiceSecretInput,
+  type TwiceStatus,
+} from '@/twice/settings';
+import {
+  describeTwiceApiKeyVerificationFailure,
+  verifyTwiceApiKey,
+} from '@/twice/verify';
 import { chatWithOpenRouter } from '@/voice/llm';
 import { geocodeDeskWeatherLocation, type DeskWeatherLocation } from '@/weather/geocode';
 import type { DeskWeatherSnapshot } from '@/weather/fetch';
@@ -751,8 +773,14 @@ export class Apollo extends Agent<Env, ApolloState> {
   ): Promise<readonly McpServerSummary[]> {
     const input = removeMcpServerInputSchema.parse(rawInput);
     await this.#assertDashboardSecret(input.secret);
+    const twiceServerId = findTwiceMcpServerId(this.getMcpServers().servers);
     await this.removeMcpServer(input.serverId);
     await deleteMcpToolSettingsForServer(this.#sqlExecutor(), input.serverId);
+    // The key only exists to feed that server; left behind, it would still be
+    // injected into coding runs with nothing in the console to show for it.
+    if (twiceServerId === input.serverId) {
+      await deleteTwiceApiKey(this.#sqlExecutor());
+    }
     return this.#listMcpServerSummaryList();
   }
 
@@ -819,6 +847,73 @@ export class Apollo extends Agent<Env, ApolloState> {
       safety: resolvedSafety,
     });
     return this.#listMcpServerSummaryList();
+  }
+
+  @callable()
+  async getTwiceStatus(rawInput: TwiceSecretInput): Promise<TwiceStatus> {
+    const input = twiceSecretInputSchema.parse(rawInput);
+    await this.#assertDashboardSecret(input.secret);
+    return buildTwiceStatus(await readTwiceApiKey(this.#sqlExecutor()));
+  }
+
+  @callable()
+  async setTwiceApiKey(rawInput: SetTwiceApiKeyInput): Promise<TwiceStatus> {
+    const input = setTwiceApiKeyInputSchema.parse(rawInput);
+    await this.#assertDashboardSecret(input.secret);
+    const verification = await verifyTwiceApiKey({ apiKey: input.apiKey });
+    if (verification.outcome !== 'valid') {
+      throw new Error(describeTwiceApiKeyVerificationFailure(verification));
+    }
+    await saveTwiceApiKey(this.#sqlExecutor(), input.apiKey);
+    await this.#installTwiceMcpServer(input.apiKey);
+    return buildTwiceStatus(input.apiKey);
+  }
+
+  @callable()
+  async clearTwiceApiKey(rawInput: TwiceSecretInput): Promise<TwiceStatus> {
+    const input = twiceSecretInputSchema.parse(rawInput);
+    await this.#assertDashboardSecret(input.secret);
+    await this.#removeTwiceMcpServer();
+    await deleteTwiceApiKey(this.#sqlExecutor());
+    return buildTwiceStatus(null);
+  }
+
+  // Reached over the Durable Object stub by the coding workflow only; not
+  // @callable, so no dashboard connection can read the key back.
+  async readTwiceApiKeyForCoding(): Promise<string | null> {
+    return readTwiceApiKey(this.#sqlExecutor());
+  }
+
+  // addMcpServer hands back the live installation untouched when name and url
+  // already match, so a replaced key only takes effect after a reinstall.
+  async #installTwiceMcpServer(apiKey: string): Promise<void> {
+    await this.#removeTwiceMcpServer();
+    const installResult = await this.addMcpServer(
+      TWICE_MCP_SERVER_NAME,
+      TWICE_MCP_SERVER_URL,
+      { transport: { headers: buildTwiceAuthorizationHeaderMap(apiKey) } },
+    );
+    for (const defaultTool of TWICE_DEFAULT_ENABLED_TOOL_LIST) {
+      await saveMcpToolSetting(this.#sqlExecutor(), {
+        namespacedName: buildNamespacedMcpToolName(
+          installResult.id,
+          defaultTool.toolName,
+        ),
+        serverId: installResult.id,
+        toolName: defaultTool.toolName,
+        isEnabled: true,
+        safety: defaultTool.safety,
+      });
+    }
+  }
+
+  async #removeTwiceMcpServer(): Promise<void> {
+    const twiceServerId = findTwiceMcpServerId(this.getMcpServers().servers);
+    if (twiceServerId === null) {
+      return;
+    }
+    await this.removeMcpServer(twiceServerId);
+    await deleteMcpToolSettingsForServer(this.#sqlExecutor(), twiceServerId);
   }
 
   @callable()

@@ -13,6 +13,7 @@ import { ConnectorCatalog } from '@/mcp/catalog';
 import { MCP_MESSAGE_CATALOG, resolveServerStateLabel } from '@/mcp/copy';
 import { InstallForm } from '@/mcp/install';
 import { ServerDetail, resolveServerTone } from '@/mcp/server';
+import { TwicePanel } from '@/mcp/twice';
 import type { ConsoleRpc } from '@/agent/rpc';
 import type { McpServer } from '@/agent/schema';
 import type { ConnectorDefinition } from '@/mcp/catalog';
@@ -172,6 +173,8 @@ export function McpPage({ consoleRpc }: { readonly consoleRpc: ConsoleRpc }) {
           ))}
         </div>
       )}
+
+      <TwicePanel consoleRpc={consoleRpc} onChanged={refreshServerList} />
 
       <ConnectorCatalog
         installedUrlSet={installedUrlSet}

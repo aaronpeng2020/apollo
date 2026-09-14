@@ -115,6 +115,13 @@ export const mcpInstallResultSchema = z.object({
 
 export type McpInstallResult = z.infer<typeof mcpInstallResultSchema>;
 
+export const twiceStatusSchema = z.object({
+  isConfigured: z.boolean(),
+  keyPrefix: z.string().nullable(),
+});
+
+export type TwiceStatus = z.infer<typeof twiceStatusSchema>;
+
 export const deviceCommandResultSchema = z.object({
   ok: z.boolean(),
   summary: z.string(),

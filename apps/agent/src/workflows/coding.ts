@@ -128,6 +128,7 @@ export class ApolloCoding extends WorkflowEntrypoint<Env, ApolloCodingParams> {
               }),
               modelId: this.env.OPENROUTER_CODING_MODEL,
               taskText: event.payload.task,
+              twiceApiKey: await this.#readTwiceApiKey(event.payload.deviceId),
             });
           }
           return runCodingAgent({
@@ -316,6 +317,13 @@ export class ApolloCoding extends WorkflowEntrypoint<Env, ApolloCodingParams> {
       },
       destroy: () => sandbox.destroy(),
     };
+  }
+
+  // Read at run time rather than carried in the workflow payload, so the
+  // owner's twice key is never persisted in queue messages or instance params.
+  async #readTwiceApiKey(deviceId: string): Promise<string | undefined> {
+    const apollo = await getAgentByName(this.env.Apollo, deviceId);
+    return (await apollo.readTwiceApiKeyForCoding()) ?? undefined;
   }
 
   async #notifyDevice(

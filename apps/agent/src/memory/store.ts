@@ -131,3 +131,10 @@ export async function setSessionPreference(
     preferenceValue,
   );
 }
+
+export async function deleteSessionPreference(
+  sqlExecutor: MemorySqlExecutor,
+  preferenceKey: string,
+): Promise<void> {
+  sqlExecutor.execute('DELETE FROM session_prefs WHERE key = ?', preferenceKey);
+}

@@ -2,6 +2,8 @@ import type { CodingAgentOutcome } from '@/coding/agent';
 import { CODING_WORKSPACE_PATH, quoteShellArgument } from '@/coding/git';
 import { CODING_PROXY_PATH_PREFIX } from '@/coding/proxy';
 import type { SandboxLike } from '@/coding/run';
+import { redactSecretsFromText } from '@/github/repository';
+import { buildTwiceOpencodeMcpEntry } from '@/twice/preset';
 
 export const OPENCODE_PROVIDER_NAME = 'apollo';
 export const OPENCODE_TOKEN_ENVIRONMENT_NAME = 'APOLLO_LLM_TOKEN';
@@ -15,10 +17,17 @@ const TRANSCRIPT_MAX_CHARACTER_COUNT = 100_000;
 export function buildOpencodeConfig(input: {
   readonly proxyOrigin: string;
   readonly modelId: string;
+  readonly twiceApiKey?: string;
 }): string {
   return JSON.stringify(
     {
       $schema: 'https://opencode.ai/config.json',
+      // webfetch stays denied: twice_fetch is the sanctioned way to read the
+      // web from a run, and only when the owner brought their own twice key.
+      mcp:
+        input.twiceApiKey === undefined
+          ? undefined
+          : { twice: buildTwiceOpencodeMcpEntry(input.twiceApiKey) },
       provider: {
         [OPENCODE_PROVIDER_NAME]: {
           npm: '@ai-sdk/openai-compatible',
@@ -82,12 +91,17 @@ export async function runOpencodeAgent(input: {
   readonly proxyToken: string;
   readonly modelId: string;
   readonly taskText: string;
+  readonly twiceApiKey?: string;
   readonly workspacePath?: string;
 }): Promise<CodingAgentOutcome> {
   const workspacePath = input.workspacePath ?? CODING_WORKSPACE_PATH;
   await input.sandbox.writeFile(
     OPENCODE_CONFIG_PATH,
-    buildOpencodeConfig({ proxyOrigin: input.proxyOrigin, modelId: input.modelId }),
+    buildOpencodeConfig({
+      proxyOrigin: input.proxyOrigin,
+      modelId: input.modelId,
+      twiceApiKey: input.twiceApiKey,
+    }),
   );
   // A retry runs in the same persistent sandbox: a summary left behind by a
   // failed attempt must not pass as this run's result.
@@ -104,11 +118,16 @@ export async function runOpencodeAgent(input: {
       timeout: OPENCODE_RUN_TIMEOUT_MILLISECONDS,
     },
   );
+  // The config file holds the twice key, so any output that echoes it must
+  // not reach the coding document or the failure summary.
+  const redactedStdout = redactSecretsFromText(runResult.stdout, [input.twiceApiKey]);
   if (runResult.exitCode !== 0) {
+    const failureText = redactSecretsFromText(
+      `${runResult.stderr}\n${runResult.stdout}`,
+      [input.twiceApiKey],
+    );
     throw new Error(
-      `opencode falló (exit ${runResult.exitCode}): ${`${runResult.stderr}\n${runResult.stdout}`
-        .trim()
-        .slice(0, 600)}`,
+      `opencode falló (exit ${runResult.exitCode}): ${failureText.trim().slice(0, 600)}`,
     );
   }
 
@@ -121,14 +140,14 @@ export async function runOpencodeAgent(input: {
     summary = '';
   }
   if (summary.length === 0) {
-    summary = runResult.stdout.trim().split('\n').slice(-6).join(' ').trim();
+    summary = redactedStdout.trim().split('\n').slice(-6).join(' ').trim();
   }
 
   return {
     summary,
     roundCount: 1,
     didReachRoundLimit: false,
-    transcript: truncateTranscriptText(runResult.stdout.trim())
+    transcript: truncateTranscriptText(redactedStdout.trim())
       .split('\n')
       .filter((line) => line.trim().length > 0),
   };

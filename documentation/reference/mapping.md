@@ -27,6 +27,7 @@ Thin map from handbook topics to code folders. Prefer the narrative chapters for
 | Coding tasks | `apps/agent/src/coding/`, `apps/agent/src/github/`, `apps/agent/src/tools/coding.ts`, `apps/agent/src/workflows/coding.ts` |
 | MCP servers (installed) | `apps/agent/src/mcp/adapter.ts`, `apps/agent/src/mcp/naming.ts`, `apps/agent/src/mcp/servers.ts`, `apps/agent/src/mcp/settings.ts` |
 | MCP bridge (device) | `apps/agent/src/mcp/bridge.ts`, `apps/agent/src/tools/device.ts` |
+| twice (bring-your-own-key browser agent) | `apps/agent/src/twice/`, `apps/console/src/mcp/twice.tsx` |
 | Auth / connection roles | `apps/agent/src/auth/` |
 | Queues | `apps/agent/src/queues/` |
 | Workflows | `apps/agent/src/workflows/` |

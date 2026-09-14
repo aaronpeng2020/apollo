@@ -28,6 +28,8 @@ None of these live in `apps/agent/wrangler.jsonc`; set each with `bunx wrangler 
 | `TAVILY_API_KEY` | Quick `web_search` |
 | `RESEND_API_KEY` | `send_email` and research report delivery |
 | `APOLLO_OWNER_EMAIL` | The pinned recipient for [Email](../capabilities/email.md) |
+
+There is no secret for [twice](../capabilities/mcp.md#twice--bring-your-own-key): every desk owner pastes their own key in the console, and it lives in that desk's Durable Object storage.
 | `GITHUB_APP_ID` | GitHub App used by coding tasks ([Coding](../capabilities/coding.md)) |
 | `GITHUB_APP_PRIVATE_KEY` | Same App — PKCS#8 PEM ([Coding](../capabilities/coding.md)) |
 

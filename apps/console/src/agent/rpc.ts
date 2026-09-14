@@ -16,6 +16,7 @@ import {
   memoryBrowseResultSchema,
   reminderListSchema,
   threadSummaryListSchema,
+  twiceStatusSchema,
   weatherLocationSchema,
 } from '@/agent/schema';
 
@@ -113,6 +114,10 @@ export function createConsoleRpc(call: AgentCall, secret: string) {
         serverId,
         toolName,
       }),
+    getTwiceStatus: () => invoke('getTwiceStatus', twiceStatusSchema),
+    setTwiceApiKey: (apiKey: string) =>
+      invoke('setTwiceApiKey', twiceStatusSchema, { apiKey }),
+    clearTwiceApiKey: () => invoke('clearTwiceApiKey', twiceStatusSchema),
   };
 }
 

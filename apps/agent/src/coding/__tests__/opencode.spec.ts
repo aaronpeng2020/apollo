@@ -56,6 +56,16 @@ function createFakeSandbox(input: {
 }
 
 const opencodeConfigModelSchema = z.object({ model: z.string() });
+const opencodeConfigTwiceSchema = z.object({
+  mcp: z.object({
+    twice: z.object({
+      type: z.literal('remote'),
+      url: z.string(),
+      headers: z.record(z.string()),
+      enabled: z.literal(true),
+    }),
+  }),
+});
 
 describe('buildOpencodeConfig', () => {
   it('points the provider at the worker proxy with the token as env reference', () => {
@@ -69,6 +79,26 @@ describe('buildOpencodeConfig', () => {
     expect(configText).toContain('{env:APOLLO_LLM_TOKEN}');
     expect(configText).not.toContain('sk-or');
     expect(config.model).toBe('apollo/moonshotai/kimi-k3');
+    expect(configText).toContain('"webfetch": "deny"');
+    expect(configText).not.toContain('"mcp"');
+  });
+
+  it('adds the twice remote server only when the owner brought a key', () => {
+    const twiceApiKey = `tw_${'a1b2c3d4'.repeat(4)}`;
+    const configText = buildOpencodeConfig({
+      proxyOrigin: 'https://apollo.example',
+      modelId: 'moonshotai/kimi-k3',
+      twiceApiKey,
+    });
+    const config = opencodeConfigTwiceSchema.parse(JSON.parse(configText));
+
+    expect(config.mcp.twice).toEqual({
+      type: 'remote',
+      url: 'https://twice.sh/mcp',
+      headers: { Authorization: `Bearer ${twiceApiKey}` },
+      enabled: true,
+    });
+    // twice replaces the built-in fetch; it does not reopen it.
     expect(configText).toContain('"webfetch": "deny"');
   });
 });
@@ -99,6 +129,32 @@ describe('runOpencodeAgent', () => {
     expect(execCall.options?.env?.OPENCODE_CONFIG).toBe(OPENCODE_CONFIG_PATH);
     expect(outcome.summary).toBe('Agregué el endpoint y los tests pasan.');
     expect(outcome.didReachRoundLimit).toBe(false);
+  });
+
+  it('keeps the twice key out of the process env and redacts it from output', async () => {
+    const twiceApiKey = `tw_${'f0e1d2c3'.repeat(4)}`;
+    const { sandbox, writtenFileByPath, execCallList } = createFakeSandbox({
+      execResult: {
+        stdout: `cargando ${twiceApiKey}\nListo.`,
+        stderr: '',
+        exitCode: 0,
+      },
+    });
+
+    const outcome = await runOpencodeAgent({
+      sandbox,
+      proxyOrigin: 'https://apollo.example',
+      proxyToken: 't',
+      modelId: 'moonshotai/kimi-k3',
+      taskText: 'verificá la landing',
+      twiceApiKey,
+    });
+
+    expect(writtenFileByPath[OPENCODE_CONFIG_PATH]).toContain(twiceApiKey);
+    expect(JSON.stringify(execCallList[0].options?.env)).not.toContain(twiceApiKey);
+    expect(outcome.summary).not.toContain(twiceApiKey);
+    expect(outcome.transcript.join('\n')).not.toContain(twiceApiKey);
+    expect(outcome.transcript.join('\n')).toContain('***');
   });
 
   it('falls back to the tail of stdout when the summary file is missing', async () => {

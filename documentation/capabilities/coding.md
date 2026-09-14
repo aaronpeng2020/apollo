@@ -58,6 +58,16 @@ Installation tokens last an hour, so one is minted immediately before the push r
 
 Create the App with **Contents: read & write**, **Pull requests: read & write**, **Metadata: read**, then install it on the repositories Apollo may touch.
 
+## Reading the web from a run
+
+opencode runs with `webfetch: 'deny'`. When the owner has pasted a [twice](mcp.md#twice--bring-your-own-key)
+key in the console, the workflow reads it from the desk's Durable Object at run time
+(never from the queue message or the workflow params) and writes an `mcp.twice` remote
+entry into the opencode config, so the coding agent gets `twice_fetch` and the browser
+verdict tools under the owner's own key. Without a key the config carries no `mcp` block
+at all. The config file lives outside the repository, and stdout is redacted before it
+becomes the coding document.
+
 ## Navigation
 
 Prev: [Sandbox](sandbox.md) · Next: [MCP servers](mcp.md)

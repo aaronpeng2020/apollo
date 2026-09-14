@@ -106,6 +106,32 @@ The device is also excluded from the SDK's own protocol frames — state sync, M
 lists — which are not part of the Apollo protocol and which the firmware answers with an
 error. See [Auth](../operations/auth.md).
 
+## twice — bring your own key
+
+[twice](https://twice.sh) is a hosted browser-agent service: `twice_fetch` reads any URL as
+markdown through a real browser (Cloudflare challenges, PDFs, JavaScript-only pages), and
+`twice_verify` / `twice_survey` / `twice_explore` / `twice_regress` open a page in real
+browsers and return a verdict. Its MCP endpoint is `https://twice.sh/mcp`, authenticated
+with a bearer key the owner mints at `https://twice.sh/dashboard`.
+
+There is deliberately **no platform-wide twice key** — no Worker secret, no env var
+fallback. Each desk brings its own. The console's MCP page has a **twice** panel: paste a
+key there and Apollo verifies it against `GET https://twice.sh/v1/usage`, stores it in the
+desk's own SQLite (`session_prefs`, key `twiceApiKey`, `apps/agent/src/twice/settings.ts`),
+and installs `https://twice.sh/mcp` through the ordinary `addMcpServer` path with the key as
+its bearer header. Once installed it is a server like any other: it shows up in the server
+list, `twice_fetch` is enabled by default as a `safe` tool, and every other twice tool stays
+opt-in from the server's panel. Removing the key — or uninstalling the twice server —
+drops both the server and the stored key.
+
+The key is write-only. `getTwiceStatus` returns `tw_xxxx…`, never the full value, and the
+method the coding workflow uses to read it (`readTwiceApiKeyForCoding`) is a plain Durable
+Object RPC method, not `@callable`, so no dashboard connection can fetch it. Keys look like
+`tw_` plus 32 lowercase alphanumerics; the pre-rename `vd_` prefix is still accepted.
+
+A desk without a key gets no twice tools anywhere — not in voice turns, not in
+[Coding](coding.md) runs.
+
 ## Prompt exposure
 
 A server's tool descriptions are written by whoever runs that server and land in the system
