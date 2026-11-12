@@ -113,9 +113,11 @@ export async function listElevenLabsVoiceChoiceList(
   return mapVoicesResponseToChoiceList(await response.json());
 }
 
+// TAVILY_API_KEY is a searchs.io key (the agent calls the gateway's Tavily
+// compat endpoint, apps/agent/src/search/tavily.ts) — validate against it.
 export async function validateTavilyApiKey(apiKey: string): Promise<KeyValidationResult> {
   try {
-    const response = await fetchWithTimeout('https://api.tavily.com/search', {
+    const response = await fetchWithTimeout('https://api.searchs.io/compat/tavily/search', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,

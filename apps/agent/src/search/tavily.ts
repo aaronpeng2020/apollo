@@ -23,14 +23,22 @@ const tavilySearchResponseSchema = z.object({
 // Tavily replaced the Cloudflare Web Search binding (account_disabled on the
 // free plan). Its results already include page content, so there is no
 // follow-up fetch of every URL: one request, sources ready to synthesize.
+//
+// 2026-09-14: the request goes to the searchs.io gateway's Tavily wire-format
+// compat endpoint (https://searchs.io/docs#compat) so every internal project
+// shares one upstream key pool — TAVILY_API_KEY is a searchs.io sk_live_ key.
+// raw_content is filled by the gateway's extractor for the top results.
+export const TAVILY_SEARCH_URL = 'https://api.searchs.io/compat/tavily/search';
+
 export async function searchWebSourcesWithTavily(input: {
   readonly tavilyApiKey: string;
   readonly query: string;
   readonly maxResults?: number;
   readonly fetchImplementation?: typeof fetch;
+  readonly searchUrl?: string;
 }): Promise<readonly TavilyWebSource[]> {
   const fetchImplementation = input.fetchImplementation ?? globalThis.fetch;
-  const response = await fetchImplementation('https://api.tavily.com/search', {
+  const response = await fetchImplementation(input.searchUrl ?? TAVILY_SEARCH_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${input.tavilyApiKey}`,

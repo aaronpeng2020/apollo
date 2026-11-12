@@ -4,6 +4,8 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-05",
   "compatibility_flags": ["nodejs_compat"],
+  // Local-dev only: expose the dev server on the LAN so a phone can connect.
+  "dev": { "ip": "0.0.0.0", "port": 8787 },
   "routes": [{ "pattern": "agent.heyapollo.dev", "custom_domain": true }],
   // Keep the workers.dev host alive until every device has reconnected through
   // the custom domain; flashed firmware carries the old wss URL until then.
@@ -20,14 +22,16 @@
     "ELEVENLABS_TTS_MODEL": "eleven_multilingual_v2",
     "OPENROUTER_EMBEDDING_MODEL": "openai/text-embedding-3-small",
   },
-  "containers": [
-    {
-      "class_name": "Sandbox",
-      "image": "./Dockerfile",
-      "instance_type": "standard-1",
-      "max_instances": 1,
-    },
-  ],
+  // Local-dev only: Docker Hub unreachable from this network, so the sandbox
+  // container image cannot build; coding-sandbox paths are not exercised here.
+  // "containers": [
+  //   {
+  //     "class_name": "Sandbox",
+  //     "image": "./Dockerfile",
+  //     "instance_type": "standard-1",
+  //     "max_instances": 1,
+  //   },
+  // ],
   "durable_objects": {
     "bindings": [
       {

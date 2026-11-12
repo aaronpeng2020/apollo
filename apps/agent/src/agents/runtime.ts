@@ -150,12 +150,16 @@ export async function executeApolloTurn(
               : { ...baseChatRequest, onTextDelta },
           );
         },
+        // Local-dev fallback: no ElevenLabs key on this machine, so real LLM
+        // turns still complete by shipping the reply text as mock speech bytes.
         tts: async (text, voiceId) =>
-          synthesizeApolloSpeech({
-            environment: dependencies.environment,
-            text,
-            voiceId,
-          }),
+          (dependencies.environment.ELEVENLABS_API_KEY ?? '').length === 0
+            ? encodeMockSpeechAudio(text)
+            : synthesizeApolloSpeech({
+                environment: dependencies.environment,
+                text,
+                voiceId,
+              }),
       };
 
   const baseTurnInput: TurnInput = {

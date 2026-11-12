@@ -61,7 +61,7 @@ describe('searchWebSourcesWithTavily', () => {
       fetchImplementation,
     });
 
-    expect(callList[0].url).toBe('https://api.tavily.com/search');
+    expect(callList[0].url).toBe('https://api.searchs.io/compat/tavily/search');
     expect(callList[0].init.headers).toMatchObject({
       Authorization: 'Bearer tvly-key',
     });
